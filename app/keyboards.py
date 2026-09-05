@@ -1,12 +1,23 @@
+from contextvars import ContextVar
+from urllib.parse import quote
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
+_current_user_is_admin: ContextVar[bool] = ContextVar("current_user_is_admin", default=False)
+
+def set_current_user_is_admin(value: bool):
+    _current_user_is_admin.set(value)
+
 def main():
-    return ReplyKeyboardMarkup(keyboard=[
+    rows = [
         [KeyboardButton(text="🔎 Смотреть"), KeyboardButton(text="💞 Совпадения")],
         [KeyboardButton(text="👤 Моя анкета"), KeyboardButton(text="✏️ Изменить")],
         [KeyboardButton(text="📍 Поиск рядом"), KeyboardButton(text="⭐ VIP")],
         [KeyboardButton(text="⭐ Stars"), KeyboardButton(text="🎮 Игры")],
-        [KeyboardButton(text="🗑 Удалить анкету")]], resize_keyboard=True)
+    ]
+    if _current_user_is_admin.get():
+        rows.append([KeyboardButton(text="🛡 Админ-панель")])
+    rows.append([KeyboardButton(text="🗑 Удалить анкету")])
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 def gender(prefix):
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -16,7 +27,24 @@ def gender(prefix):
 def profile(uid):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="❤️ Нравится", callback_data=f"like:{uid}"), InlineKeyboardButton(text="👎 Дальше", callback_data=f"skip:{uid}")],
-        [InlineKeyboardButton(text="🚩 Жалоба", callback_data=f"report:{uid}"), InlineKeyboardButton(text="🚫 Блок", callback_data=f"block:{uid}")]])
+        [InlineKeyboardButton(text="💬 Написать", callback_data=f"chat:start:{uid}"), InlineKeyboardButton(text="🚩 Жалоба", callback_data=f"report:{uid}")],
+        [InlineKeyboardButton(text="🚫 Блок", callback_data=f"block:{uid")] ])
+
+def match_profile(uid, username=None):
+    greeting = "Привет, я с Орбиты Венеры-Юпитера! 🌌"
+    buttons = []
+    if username:
+        buttons.append(InlineKeyboardButton(text="💬 Открыть Telegram", url=f"https://t.me/{username}?text={quote(greeting)}"))
+    else:
+        buttons.append(InlineKeyboardButton(text="👤 Открыть профиль", url=f"tg://user?id={uid}"))
+    buttons.append(InlineKeyboardButton(text="📨 Написать через бота", callback_data=f"chat:start:{uid}"))
+    return InlineKeyboardMarkup(inline_keyboard=[
+        buttons,
+        [InlineKeyboardButton(text="👋 Отправить приветствие", callback_data=f"match:greet:{uid}")],
+    ])
+
+def chat_cancel():
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Завершить диалог", callback_data="chat:cancel")]])
 
 def admin():
     return InlineKeyboardMarkup(inline_keyboard=[
