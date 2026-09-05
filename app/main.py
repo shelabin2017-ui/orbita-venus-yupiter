@@ -5,6 +5,7 @@ from aiogram.enums import ParseMode
 from .config import load_config
 from .db import DB
 from .handlers import r
+from .features import r as features_router, photo_worker
 from .redis_store import make_redis, make_fsm_storage
 
 async def main():
@@ -21,13 +22,17 @@ async def main():
     dp.message.middleware(inject)
     dp.callback_query.middleware(inject)
     dp.pre_checkout_query.middleware(inject)
+    dp.include_router(features_router)
     dp.include_router(r)
 
+    moderation_task = asyncio.create_task(photo_worker(bot, db, cfg))
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         print("🟢 Орбита запущена в режиме long polling")
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
+        moderation_task.cancel()
+        await asyncio.gather(moderation_task, return_exceptions=True)
         await bot.session.close()
         await redis.aclose()
         await db.engine.dispose()
