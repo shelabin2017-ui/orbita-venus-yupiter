@@ -70,7 +70,7 @@ def load_config():
         inactivity_reminder_days=int(os.getenv("INACTIVITY_REMINDER_DAYS", "14")),
         activity_touch_interval_seconds=int(os.getenv("ACTIVITY_TOUCH_INTERVAL_SECONDS", "900")),
         activity_worker_seconds=int(os.getenv("ACTIVITY_WORKER_SECONDS", "600")),
-        author_name=os.getenv("AUTHOR_NAME", "Автор проекта").strip(),
-        author_url=os.getenv("AUTHOR_URL", "").strip(),
-        author_tiktok_url=os.getenv("AUTHOR_TIKTOK_URL", "").strip(),
+        author_name=os.getenv("AUTHOR_NAME", "zeroshka").strip(),
+        author_url=os.getenv("AUTHOR_URL", "https://t.me/zeroshkaoff").strip(),
+        author_tiktok_url=os.getenv("AUTHOR_TIKTOK_URL", "https://www.tiktok.com/@zeroshkayt?_r=1&_t=ZS-99TvDfLcoAU").strip(),
     )
