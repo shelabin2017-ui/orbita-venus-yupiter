@@ -5,34 +5,39 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 
 # Codespaces secrets are environment variables inside the Codespace.
-# Always sync the two required bot secrets into .env when they are present.
-# This also fixes an older .env that was created from .env.example before
-# the Codespaces secrets were added.
-if [ -n "${ORBITA_BOT_TOKEN:-}" ] && [ -n "${ORBITA_ADMIN_IDS:-}" ]; then
-  if [ ! -f .env ]; then
-    cp .env.example .env
-  fi
-  python - <<'PY'
+# Always sync credentials into .env when they are present. This fixes an older
+# .env that was created from .env.example before the secrets were added.
+if [ ! -f .env ]; then
+  cp .env.example .env
+fi
+
+python - <<'PY'
 from pathlib import Path
 import os
 
 p = Path('.env')
-text = p.read_text(encoding='utf-8') if p.exists() else ''
-lines = [line for line in text.splitlines() if not line.startswith(('BOT_TOKEN=', 'ADMIN_IDS='))]
-lines += [
-    f"BOT_TOKEN={os.environ['ORBITA_BOT_TOKEN']}",
-    f"ADMIN_IDS={os.environ['ORBITA_ADMIN_IDS']}",
-]
-p.write_text('\n'.join(lines).rstrip() + '\n', encoding='utf-8')
+text = p.read_text(encoding='utf-8')
+updates = {}
+if os.getenv('ORBITA_BOT_TOKEN'):
+    updates['BOT_TOKEN'] = os.environ['ORBITA_BOT_TOKEN']
+if os.getenv('ORBITA_ADMIN_IDS'):
+    updates['ADMIN_IDS'] = os.environ['ORBITA_ADMIN_IDS']
+if os.getenv('ORBITA_OPENAI_API_KEY'):
+    updates['PHOTO_MODERATION_API_KEY'] = os.environ['ORBITA_OPENAI_API_KEY']
+    updates['PHOTO_MODERATION_ENABLED'] = 'true'
+if os.getenv('ORBITA_OPENAI_MODEL'):
+    updates['PHOTO_MODERATION_MODEL'] = os.environ['ORBITA_OPENAI_MODEL']
+
+if updates:
+    lines = text.splitlines()
+    for key, value in updates.items():
+        lines = [line for line in lines if not line.startswith(key + '=')]
+        lines.append(f'{key}={value}')
+    p.write_text('\n'.join(lines).rstrip() + '\n', encoding='utf-8')
+    print('Synced Codespaces secrets: ' + ', '.join(sorted(updates)))
+else:
+    print('No ORBITA_* Codespaces secrets were visible during setup; runtime config will still check the environment.')
 PY
-  echo "Synced BOT_TOKEN and ADMIN_IDS from Codespaces secrets."
-else
-  if [ ! -f .env ]; then
-    cp .env.example .env
-    echo "Created .env from .env.example."
-  fi
-  echo "Codespaces bot secrets are not visible to setup.sh; runtime config will also try ORBITA_BOT_TOKEN and ORBITA_ADMIN_IDS."
-fi
 
 python -m compileall -q app
 
