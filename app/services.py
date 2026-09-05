@@ -20,10 +20,18 @@ async def like_count_today(s,u):
     start=datetime.utcnow().replace(hour=0,minute=0,second=0,microsecond=0)
     return await s.scalar(select(func.count()).select_from(Reaction).where(Reaction.from_user_id==u.id,Reaction.kind=="like",Reaction.created_at>=start))
 
-async def next_profile(s,me, radius=None):
+async def next_profile(s,me, radius=None, inactive_days=7):
     seen=select(Reaction.to_user_id).where(Reaction.from_user_id==me.id)
-    freshness=datetime.utcnow()-timedelta(days=7)
-    q=select(User).where(User.id!=me.id,User.is_active==True,User.is_banned==False,User.moderation_status=="approved",User.deleted_at==None,or_(User.last_active_at==None,User.last_active_at>=freshness),~User.id.in_(seen))
+    freshness=datetime.utcnow()-timedelta(days=max(inactive_days,1))
+    q=select(User).where(
+        User.id!=me.id,
+        User.is_active==True,
+        User.is_banned==False,
+        User.moderation_status=="approved",
+        User.deleted_at==None,
+        or_(User.last_active_at==None,User.last_active_at>=freshness),
+        ~User.id.in_(seen),
+    )
     if me.looking_for and me.looking_for!="any": q=q.where(User.gender==me.looking_for)
     rows=(await s.execute(q.order_by(User.last_active_at.desc().nullslast(),User.id).limit(100))).scalars().all()
     for u in rows:
