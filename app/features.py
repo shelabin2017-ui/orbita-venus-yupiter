@@ -10,11 +10,11 @@ from aiogram import Router, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery
-from sqlalchemy import select, func
+from sqlalchemy import select
 
 from .config import Config
 from .db import User, Photo, StarTransaction, AuditLog
-from .keyboards import admin, admin_back, user_actions
+from .keyboards import admin, admin_back
 from .services import get_user
 
 r = Router()
@@ -94,6 +94,8 @@ async def photo_worker(bot: Bot, db, config: Config):
                     else:
                         photo_id = None
                 if photo_id is not None:
+                    target = None
+                    text = None
                     async with db.session() as s:
                         p = await s.get(Photo, photo_id)
                         result = await moderate_photo(bot, p, config) if p else None
@@ -112,9 +114,6 @@ async def photo_worker(bot: Bot, db, config: Config):
                             if user and decision in {"approve", "reject"}:
                                 target = user.tg_id
                                 text = "📷 Фото автоматически одобрено." if decision == "approve" else "📷 Фото автоматически отклонено. Можно загрузить другое фото."
-                            else:
-                                target = None
-                                text = None
                         await s.commit()
                     if target and text:
                         try:
@@ -127,6 +126,13 @@ async def photo_worker(bot: Bot, db, config: Config):
             raise
         except Exception:
             await asyncio.sleep(max(2, config.photo_moderation_poll_seconds))
+
+@r.callback_query(F.data == "adm:stars")
+async def admin_stars_root(c: CallbackQuery, config: Config):
+    if not is_admin(c.from_user.id, config):
+        return await c.answer()
+    await c.message.edit_text("⭐ <b>Stars</b>\n\nОткройте пользователя через «👥 Пользователи» → поиск. В карточке пользователя доступны начисление/списание и история Stars.", reply_markup=admin())
+    await c.answer()
 
 @r.callback_query(F.data.startswith("adm:stars:"))
 async def admin_stars_menu(c: CallbackQuery, db, config: Config, state: FSMContext):
@@ -198,7 +204,7 @@ async def admin_stars_history(c: CallbackQuery, db, config: Config):
         return await c.answer("Пользователь не найден", show_alert=True)
     lines = [f"⭐ <b>Stars пользователя</b>\nБаланс: <b>{u.stars_balance}</b>"]
     lines += [f"{'+' if x.amount > 0 else ''}{x.amount} → {x.balance_after} • {x.kind} • {x.reason or '—'}" for x in rows]
-    await c.message.answer("\n".join(lines), reply_markup=admin_back())
+    await c.message.answer("\n".join(lines), reply_markup=admin())
     await c.answer()
 
 @r.message(F.text == "⭐ Stars")
