@@ -6,6 +6,7 @@ from .config import load_config
 from .db import DB
 from .handlers import r
 from .features import r as features_router, photo_worker
+from .keyboards import set_current_user_is_admin
 from .redis_store import make_redis, make_fsm_storage
 
 async def main():
@@ -16,6 +17,8 @@ async def main():
     dp = Dispatcher(storage=make_fsm_storage(redis))
 
     async def inject(handler, event, data):
+        user = getattr(event, "from_user", None)
+        set_current_user_is_admin(bool(user and user.id in cfg.admin_ids))
         data.update(db=db, config=cfg, redis=redis)
         return await handler(event, data)
 
