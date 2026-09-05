@@ -4,18 +4,20 @@ import io
 import json
 import random
 from datetime import datetime
+from urllib.parse import quote
 
 import httpx
 from aiogram import Router, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery
-from sqlalchemy import select
+from sqlalchemy import select, or_
 
 from .config import Config
-from .db import User, Photo, StarTransaction, AuditLog
-from .keyboards import admin, admin_back
-from .services import get_user
+from .db import User, Photo, StarTransaction, AuditLog, Match, Reaction
+from .keyboards import admin, admin_back, main, match_profile, chat_cancel
+from .services import get_user, is_vip, react
+from .anti_spam import AntiSpam
 
 r = Router()
 
@@ -25,6 +27,9 @@ class StarsState(StatesGroup):
 
 class GameState(StatesGroup):
     answer = State()
+
+class ChatState(StatesGroup):
+    active = State()
 
 
 def is_admin(uid: int, config: Config) -> bool:
@@ -126,6 +131,12 @@ async def photo_worker(bot: Bot, db, config: Config):
             raise
         except Exception:
             await asyncio.sleep(max(2, config.photo_moderation_poll_seconds))
+
+@r.message(F.text == "🛡 Админ-панель")
+async def admin_panel_button(m: Message, config: Config):
+    if not is_admin(m.from_user.id, config):
+        return
+    await m.answer("🛡 <b>АДМИН-ПАНЕЛЬ</b>\n\nВыберите раздел:", reply_markup=admin())
 
 @r.callback_query(F.data == "adm:stars")
 async def admin_stars_root(c: CallbackQuery, config: Config):
@@ -241,3 +252,104 @@ async def game_answer(m: Message, state: FSMContext, db):
         balance = await change_stars(s, u, 5, "game_reward", "быстрая математика")
         await s.commit()
     await m.answer(f"🎉 Верно! +5 Stars. Ваш баланс: <b>{balance}</b>")
+
+async def _is_match(s, a_id: int, b_id: int) -> bool:
+    return (await s.execute(select(Match).where(
+        or_(
+            (Match.user_a_id == a_id) & (Match.user_b_id == b_id),
+            (Match.user_a_id == b_id) & (Match.user_b_id == a_id),
+        )
+    ))).scalar_one_or_none() is not None
+
+@r.callback_query(F.data.startswith(("like:", "skip:")))
+async def improved_reaction(c: CallbackQuery, db, config, redis):
+    act, uid = c.data.split(":")
+    from .services import get_user, is_vip, react
+    if not await AntiSpam(redis, config.antispam_seconds).allowed(c.from_user.id, "reaction"):
+        return await c.answer("Слишком быстро. Попробуйте через секунду.", show_alert=True)
+    async with db.session() as s:
+        me = await get_user(s, c.from_user.id)
+        other = await s.get(User, int(uid))
+        if not me or not other or me.id == other.id or me.is_banned or me.deleted_at or not me.is_active or other.is_banned or other.deleted_at or not other.is_active:
+            return await c.answer("Анкета недоступна.", show_alert=True)
+        if act == "like":
+            existing = (await s.execute(select(Reaction).where(Reaction.from_user_id == me.id, Reaction.to_user_id == other.id))).scalar_one_or_none()
+            if not existing or existing.kind != "like":
+                limit = config.vip_daily_likes if await is_vip(me) else config.free_daily_likes
+                if not await AntiSpam(redis, config.antispam_seconds).daily_limit(me.tg_id, limit):
+                    return await c.answer("Лимит лайков на сегодня. ⭐ VIP даёт повышенный лимит.", show_alert=True)
+        matched = await react(s, me, other, "like" if act == "like" else "skip")
+        await c.answer("❤️" if act == "like" else "👎")
+        if matched:
+            me_username = f"@{me.username}" if me.username else "Username не указан"
+            other_username = f"@{other.username}" if other.username else "Username не указан"
+            greeting = "Привет, я с Орбиты Венеры-Юпитера! 🌌"
+            await c.message.answer(
+                f"💞 <b>Взаимная симпатия!</b>\n\nТы понравился(ась) пользователю <b>{other.name}</b>.\n{other_username}\n\nНажми кнопку ниже, чтобы открыть Telegram-профиль или начать переписку.",
+                reply_markup=match_profile(other.tg_id, other.username),
+            )
+            try:
+                await c.bot.send_message(
+                    other.tg_id,
+                    f"💞 <b>Взаимная симпатия!</b>\n\nТы понравился(ась) пользователю <b>{me.name}</b>.\n{me_username}\n\n{greeting}",
+                    reply_markup=match_profile(me.tg_id, me.username),
+                )
+            except Exception:
+                pass
+        from .handlers import show_next
+        await show_next(c.message, s, me)
+
+@r.callback_query(F.data.startswith("match:greet:"))
+async def match_greet(c: CallbackQuery, db):
+    uid = int(c.data.split(":")[2])
+    greeting = "Привет, я с Орбиты Венеры-Юпитера! 🌌"
+    async with db.session() as s:
+        me = await get_user(s, c.from_user.id)
+        other = await s.get(User, uid)
+        if not me or not other or not await _is_match(s, me.id, other.id):
+            return await c.answer("Эта функция доступна после взаимной симпатии.", show_alert=True)
+    try:
+        await c.bot.send_message(other.tg_id, f"👋 {greeting}\n\nСообщение от <b>{me.name}</b>.")
+    except Exception:
+        return await c.answer("Не удалось отправить приветствие.", show_alert=True)
+    await c.answer("Приветствие отправлено!", show_alert=True)
+
+@r.callback_query(F.data.startswith("chat:start:"))
+async def chat_start(c: CallbackQuery, state: FSMContext, db):
+    uid = int(c.data.split(":")[2])
+    async with db.session() as s:
+        me = await get_user(s, c.from_user.id)
+        other = await s.get(User, uid)
+        if not me or not other or not await _is_match(s, me.id, other.id):
+            return await c.answer("Написать через бота можно после взаимной симпатии.", show_alert=True)
+    await state.update_data(chat_target_id=uid)
+    await state.set_state(ChatState.active)
+    await c.message.answer("💬 Напишите сообщение, пришлите фото, голосовое, видео или другой поддерживаемый Telegram-контент. Я передам его вашему совпадению.", reply_markup=chat_cancel())
+    await c.answer()
+
+@r.callback_query(F.data == "chat:cancel")
+async def chat_cancel_handler(c: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await c.message.answer("Диалог через бота завершён.", reply_markup=main())
+    await c.answer()
+
+@r.message(ChatState.active)
+async def chat_relay(m: Message, state: FSMContext, db):
+    data = await state.get_data()
+    uid = data.get("chat_target_id")
+    if not uid:
+        await state.clear()
+        return await m.answer("Диалог завершён.", reply_markup=main())
+    async with db.session() as s:
+        me = await get_user(s, m.from_user.id)
+        other = await s.get(User, int(uid))
+        valid = bool(me and other and not me.is_banned and not other.is_banned and not me.deleted_at and not other.deleted_at and await _is_match(s, me.id, other.id))
+    if not valid:
+        await state.clear()
+        return await m.answer("Диалог недоступен.", reply_markup=main())
+    try:
+        await m.bot.send_message(other.tg_id, f"💌 Сообщение от <b>{me.name}</b>{f' (@{me.username})' if me.username else ''}:")
+        await m.copy_to(other.tg_id)
+        await m.answer("✅ Отправлено.")
+    except Exception:
+        await m.answer("Не удалось доставить сообщение. Попробуйте ещё раз.")
