@@ -28,18 +28,17 @@ def profile(uid):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="❤️ Нравится", callback_data=f"like:{uid}"), InlineKeyboardButton(text="👎 Дальше", callback_data=f"skip:{uid}")],
         [InlineKeyboardButton(text="💬 Написать", callback_data=f"chat:start:{uid}"), InlineKeyboardButton(text="🚩 Жалоба", callback_data=f"report:{uid}")],
-        [InlineKeyboardButton(text="🚫 Блок", callback_data=f"block:{uid")] ])
+        [InlineKeyboardButton(text="🚫 Блок", callback_data=f"block:{uid}")]])
 
 def match_profile(uid, username=None):
     greeting = "Привет, я с Орбиты Венеры-Юпитера! 🌌"
-    buttons = []
     if username:
-        buttons.append(InlineKeyboardButton(text="💬 Открыть Telegram", url=f"https://t.me/{username}?text={quote(greeting)}"))
+        contact = InlineKeyboardButton(text="💬 Открыть Telegram", url=f"https://t.me/{username}?text={quote(greeting)}")
     else:
-        buttons.append(InlineKeyboardButton(text="👤 Открыть профиль", url=f"tg://user?id={uid}"))
-    buttons.append(InlineKeyboardButton(text="📨 Написать через бота", callback_data=f"chat:start:{uid}"))
+        contact = InlineKeyboardButton(text="👤 Открыть профиль", url=f"tg://user?id={uid}")
     return InlineKeyboardMarkup(inline_keyboard=[
-        buttons,
+        [contact],
+        [InlineKeyboardButton(text="📨 Написать через бота", callback_data=f"chat:start:{uid}")],
         [InlineKeyboardButton(text="👋 Отправить приветствие", callback_data=f"match:greet:{uid}")],
     ])
 
