@@ -36,7 +36,7 @@ def load_config():
     # requiring a manually created .env file.
     token = (os.getenv("BOT_TOKEN") or os.getenv("ORBITA_BOT_TOKEN") or "").strip()
     if not token:
-        raise RuntimeError("❌ BOT_TOKEN не найден! Добавь секрет ORBITA_BOT_TOKEN или BOT_TOKEN в .env")
+        raise RuntimeError("❌ BOT_TOKEN не найден! Добавь секрет ORBITA_BOT_TOKEN (или BOT_TOKEN) в Codespaces Secrets и перезапусти Codespace")
 
     admin_raw = os.getenv("ADMIN_IDS") or os.getenv("ORBITA_ADMIN_IDS") or ""
     admin_ids = {
@@ -45,11 +45,24 @@ def load_config():
         if x.strip()
     }
     if not admin_ids:
-        raise RuntimeError("❌ ADMIN_IDS не найден! Добавь секрет ORBITA_ADMIN_IDS или ADMIN_IDS в .env")
+        raise RuntimeError("❌ ADMIN_IDS не найден! Добавь секрет ORBITA_ADMIN_IDS (или ADMIN_IDS) в Codespaces Secrets и перезапусти Codespace")
 
     database_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://orbita:change_me@postgres:5432/orbita").strip()
     if database_url.startswith("postgresql://"):
         database_url = "postgresql+asyncpg://" + database_url[len("postgresql://"):]
+
+    moderation_key = (
+        os.getenv("PHOTO_MODERATION_API_KEY")
+        or os.getenv("ORBITA_OPENAI_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+        or ""
+    ).strip()
+    moderation_model = (
+        os.getenv("PHOTO_MODERATION_MODEL")
+        or os.getenv("ORBITA_OPENAI_MODEL")
+        or "gpt-5.6-luna"
+    ).strip()
+    moderation_flag = os.getenv("PHOTO_MODERATION_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
 
     return Config(
         bot_token=token,
@@ -65,9 +78,9 @@ def load_config():
         stars_vip_price=int(os.getenv("STARS_VIP_PRICE", "100")),
         vip_days=int(os.getenv("VIP_DAYS", "30")),
         backup_dir=os.getenv("BACKUP_DIR", "/backups"),
-        photo_moderation_enabled=os.getenv("PHOTO_MODERATION_ENABLED", "false").lower() in {"1", "true", "yes", "on"},
-        photo_moderation_api_key=os.getenv("PHOTO_MODERATION_API_KEY", "").strip(),
-        photo_moderation_model=os.getenv("PHOTO_MODERATION_MODEL", "").strip(),
+        photo_moderation_enabled=moderation_flag and bool(moderation_key),
+        photo_moderation_api_key=moderation_key,
+        photo_moderation_model=moderation_model,
         photo_moderation_poll_seconds=int(os.getenv("PHOTO_MODERATION_POLL_SECONDS", "5")),
         profile_inactive_days=int(os.getenv("PROFILE_INACTIVE_DAYS", "7")),
         inactivity_reminder_days=int(os.getenv("INACTIVITY_REMINDER_DAYS", "14")),
