@@ -4,44 +4,34 @@ set -euo pipefail
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 
-# Phone-friendly secrets setup:
-# GitHub Codespaces secrets ORBITA_BOT_TOKEN and ORBITA_ADMIN_IDS are
-# automatically converted into the local .env file. Nothing secret is committed.
-if [ ! -f .env ]; then
-  if [ -n "${ORBITA_BOT_TOKEN:-}" ] && [ -n "${ORBITA_ADMIN_IDS:-}" ]; then
-    cat > .env <<EOF
-# Generated automatically from GitHub Codespaces secrets.
-BOT_TOKEN=${ORBITA_BOT_TOKEN}
-ADMIN_IDS=${ORBITA_ADMIN_IDS}
-
-POSTGRES_DB=orbita
-POSTGRES_USER=orbita
-POSTGRES_PASSWORD=${ORBITA_POSTGRES_PASSWORD:-orbita_local_dev}
-DATABASE_URL=postgresql+asyncpg://orbita:${ORBITA_POSTGRES_PASSWORD:-orbita_local_dev}@postgres:5432/orbita
-REDIS_URL=redis://redis:6379/0
-
-MIN_AGE=18
-MAX_AGE=99
-FREE_DAILY_LIKES=20
-VIP_DAILY_LIKES=200
-MAX_PHOTOS=5
-ANTISPAM_SECONDS=2
-STARS_VIP_PRICE=100
-VIP_DAYS=30
-PROFILE_INACTIVE_DAYS=7
-INACTIVITY_REMINDER_DAYS=14
-ACTIVITY_TOUCH_INTERVAL_SECONDS=900
-ACTIVITY_WORKER_SECONDS=600
-AUTHOR_NAME=zeroshka
-AUTHOR_URL=https://t.me/zeroshkaoff
-AUTHOR_TIKTOK_URL=https://www.tiktok.com/@zeroshkayt?_r=1&_t=ZS-99TvDfLcoAU
-BACKUP_DIR=/backups
-EOF
-    echo "Created .env from GitHub Codespaces secrets."
-  else
+# Codespaces secrets are environment variables inside the Codespace.
+# Always sync the two required bot secrets into .env when they are present.
+# This also fixes an older .env that was created from .env.example before
+# the Codespaces secrets were added.
+if [ -n "${ORBITA_BOT_TOKEN:-}" ] && [ -n "${ORBITA_ADMIN_IDS:-}" ]; then
+  if [ ! -f .env ]; then
     cp .env.example .env
-    echo "Created .env from .env.example. Add BOT_TOKEN and ADMIN_IDS, or configure Codespaces secrets ORBITA_BOT_TOKEN and ORBITA_ADMIN_IDS."
   fi
+  python - <<'PY'
+from pathlib import Path
+import os
+
+p = Path('.env')
+text = p.read_text(encoding='utf-8') if p.exists() else ''
+lines = [line for line in text.splitlines() if not line.startswith(('BOT_TOKEN=', 'ADMIN_IDS='))]
+lines += [
+    f"BOT_TOKEN={os.environ['ORBITA_BOT_TOKEN']}",
+    f"ADMIN_IDS={os.environ['ORBITA_ADMIN_IDS']}",
+]
+p.write_text('\n'.join(lines).rstrip() + '\n', encoding='utf-8')
+PY
+  echo "Synced BOT_TOKEN and ADMIN_IDS from Codespaces secrets."
+else
+  if [ ! -f .env ]; then
+    cp .env.example .env
+    echo "Created .env from .env.example."
+  fi
+  echo "Codespaces bot secrets are not visible to setup.sh; runtime config will also try ORBITA_BOT_TOKEN and ORBITA_ADMIN_IDS."
 fi
 
 python -m compileall -q app
