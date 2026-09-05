@@ -10,6 +10,7 @@ from .match_features import r as match_router
 from .promo import r as promo_router
 from .universe import r as universe_router
 from .spark import r as spark_router
+from .secret_signal import r as secret_router
 from .activity import touch_activity, inactivity_worker
 from .keyboards import set_current_user_is_admin
 from .redis_store import make_redis, make_fsm_storage
@@ -20,7 +21,7 @@ async def main():
         if user: await touch_activity(db,redis,user.id,cfg.activity_touch_interval_seconds)
         return await handler(event,data)
     dp.message.middleware(inject); dp.callback_query.middleware(inject); dp.pre_checkout_query.middleware(inject)
-    dp.include_router(universe_router); dp.include_router(spark_router); dp.include_router(features_router); dp.include_router(promo_router); dp.include_router(match_router); dp.include_router(r)
+    dp.include_router(universe_router); dp.include_router(spark_router); dp.include_router(secret_router); dp.include_router(features_router); dp.include_router(promo_router); dp.include_router(match_router); dp.include_router(r)
     moderation_task=asyncio.create_task(photo_worker(bot,db,cfg)); inactivity_task=asyncio.create_task(inactivity_worker(bot,db,cfg))
     try:
         await bot.delete_webhook(drop_pending_updates=True); print("🟢 Орбита запущена в режиме long polling"); await dp.start_polling(bot,allowed_updates=dp.resolve_used_update_types())
