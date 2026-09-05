@@ -1,6 +1,6 @@
 import asyncio
 
-from aiogram import Router, F, Bot
+from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from .config import Config
 from .db import User
-from .keyboards import admin, admin_back
+from .keyboards import admin
 
 r = Router()
 
@@ -20,18 +20,18 @@ class BroadcastState(StatesGroup):
 def about_keyboard(config: Config):
     rows = []
     if config.author_url:
-        rows.append([InlineKeyboardButton(text="👤 Автор проекта", url=config.author_url)])
+        rows.append([InlineKeyboardButton(text="👤 zeroshka", url=config.author_url)])
     if config.author_tiktok_url:
-        rows.append([InlineKeyboardButton(text="🎵 TikTok автора", url=config.author_tiktok_url)])
+        rows.append([InlineKeyboardButton(text="🎵 TikTok · zeroshka", url=config.author_tiktok_url)])
     return InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
 
 
 def about_text(config: Config) -> str:
-    author = config.author_name or "Автор проекта"
+    author = config.author_name or "zeroshka"
     return (
         "🌌 <b>Орбита — Венера-Юпитер</b>\n\n"
         "Это бот для знакомств, общения и новых совпадений — без лишнего шума.\n\n"
-        f"✨ Проект создан: <b>{author}</b>.\n"
+        f"✨ Автор проекта: <b>{author}</b>.\n"
         "Здесь автор может делиться новостями, идеями и полезным контентом, "
         "не превращая знакомства в рекламную ленту."
     )
