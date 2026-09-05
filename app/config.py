@@ -23,6 +23,10 @@ class Config:
     photo_moderation_api_key: str
     photo_moderation_model: str
     photo_moderation_poll_seconds: int
+    profile_inactive_days: int
+    inactivity_reminder_days: int
+    activity_touch_interval_seconds: int
+    activity_worker_seconds: int
 
 def load_config():
     token = os.getenv("BOT_TOKEN", "").strip()
@@ -59,4 +63,8 @@ def load_config():
         photo_moderation_api_key=os.getenv("PHOTO_MODERATION_API_KEY", "").strip(),
         photo_moderation_model=os.getenv("PHOTO_MODERATION_MODEL", "gpt-5.6-luna").strip(),
         photo_moderation_poll_seconds=int(os.getenv("PHOTO_MODERATION_POLL_SECONDS", "5")),
+        profile_inactive_days=int(os.getenv("PROFILE_INACTIVE_DAYS", "7")),
+        inactivity_reminder_days=int(os.getenv("INACTIVITY_REMINDER_DAYS", "14")),
+        activity_touch_interval_seconds=int(os.getenv("ACTIVITY_TOUCH_INTERVAL_SECONDS", "900")),
+        activity_worker_seconds=int(os.getenv("ACTIVITY_WORKER_SECONDS", "600")),
     )
