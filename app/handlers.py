@@ -9,7 +9,7 @@ from sqlalchemy import select,func,or_
 from .db import User,Photo,Report,Payment,AuditLog,Block,Match,Reaction
 from .config import Config
 from .services import get_user,next_profile,public_photos,is_vip,like_count_today,react
-from .keyboards import main,gender,profile,admin,moderate,vip,confirm_delete,edit_fields,report_reasons,matches_actions
+from .keyboards import main,gender,profile,admin,moderate,vip,confirm_delete,edit_fields,report_reasons,matches_actions,user_actions,report_actions
 
 r=Router()
 
