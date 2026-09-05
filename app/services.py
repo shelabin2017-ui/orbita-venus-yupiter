@@ -22,9 +22,10 @@ async def like_count_today(s,u):
 
 async def next_profile(s,me, radius=None):
     seen=select(Reaction.to_user_id).where(Reaction.from_user_id==me.id)
-    q=select(User).where(User.id!=me.id,User.is_active==True,User.is_banned==False,User.moderation_status=="approved",User.deleted_at==None,~User.id.in_(seen))
+    freshness=datetime.utcnow()-timedelta(days=7)
+    q=select(User).where(User.id!=me.id,User.is_active==True,User.is_banned==False,User.moderation_status=="approved",User.deleted_at==None,or_(User.last_active_at==None,User.last_active_at>=freshness),~User.id.in_(seen))
     if me.looking_for and me.looking_for!="any": q=q.where(User.gender==me.looking_for)
-    rows=(await s.execute(q.order_by(User.id).limit(100))).scalars().all()
+    rows=(await s.execute(q.order_by(User.last_active_at.desc().nullslast(),User.id).limit(100))).scalars().all()
     for u in rows:
         if await blocked(s,me.id,u.id): continue
         if radius and me.latitude is not None and u.latitude is not None:
