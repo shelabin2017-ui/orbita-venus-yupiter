@@ -1,4 +1,8 @@
-"""internal stars and automatic photo moderation"""
+"""add internal Stars and photo moderation fields
+
+Revision ID: 0002_stars_photo_moderation
+Revises: 0001_initial
+"""
 from alembic import op
 import sqlalchemy as sa
 
@@ -15,7 +19,6 @@ def upgrade():
     op.add_column("photos", sa.Column("moderated_at", sa.DateTime(), nullable=True))
     op.add_column("photos", sa.Column("moderation_source", sa.String(20), nullable=True))
     op.create_index("ix_photos_moderation_source", "photos", ["moderation_source"])
-
     op.create_table(
         "star_transactions",
         sa.Column("id", sa.Integer(), primary_key=True),
@@ -29,6 +32,7 @@ def upgrade():
     )
     op.create_index("ix_star_transactions_user_id", "star_transactions", ["user_id"])
     op.create_index("ix_star_transactions_created_at", "star_transactions", ["created_at"])
+    op.alter_column("users", "stars_balance", server_default=None)
 
 
 def downgrade():
