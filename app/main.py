@@ -6,6 +6,7 @@ from .config import load_config
 from .db import DB
 from .handlers import r
 from .features import r as features_router, photo_worker
+from .match_features import r as match_router
 from .keyboards import set_current_user_is_admin
 from .redis_store import make_redis, make_fsm_storage
 
@@ -26,6 +27,7 @@ async def main():
     dp.callback_query.middleware(inject)
     dp.pre_checkout_query.middleware(inject)
     dp.include_router(features_router)
+    dp.include_router(match_router)
     dp.include_router(r)
 
     moderation_task = asyncio.create_task(photo_worker(bot, db, cfg))
