@@ -2,6 +2,12 @@ services:
   bot:
     build: .
     env_file: .env
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN:-${ORBITA_BOT_TOKEN:-}}
+      ADMIN_IDS: ${ADMIN_IDS:-${ORBITA_ADMIN_IDS:-}}
+      PHOTO_MODERATION_ENABLED: ${PHOTO_MODERATION_ENABLED:-false}
+      PHOTO_MODERATION_API_KEY: ${PHOTO_MODERATION_API_KEY:-${ORBITA_OPENAI_API_KEY:-}}
+      PHOTO_MODERATION_MODEL: ${PHOTO_MODERATION_MODEL:-gpt-5.6-luna}
     restart: unless-stopped
     depends_on:
       postgres: {condition: service_healthy}
