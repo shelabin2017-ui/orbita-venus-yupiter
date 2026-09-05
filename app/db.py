@@ -1,0 +1,24 @@
+from datetime import datetime
+from sqlalchemy import Integer,BigInteger,String,Text,Float,Boolean,DateTime,ForeignKey,UniqueConstraint,Index
+from sqlalchemy.ext.asyncio import create_async_engine,async_sessionmaker,AsyncSession
+from sqlalchemy.orm import DeclarativeBase,Mapped,mapped_column
+class Base(DeclarativeBase): pass
+class User(Base):
+    __tablename__='users'; id:Mapped[int]=mapped_column(Integer,primary_key=True); tg_id:Mapped[int]=mapped_column(BigInteger,unique=True,index=True); username:Mapped[str|None]=mapped_column(String(64)); name:Mapped[str]=mapped_column(String(80),default=''); age:Mapped[int|None]=mapped_column(Integer); gender:Mapped[str|None]=mapped_column(String(20)); looking_for:Mapped[str|None]=mapped_column(String(20)); city:Mapped[str|None]=mapped_column(String(100)); latitude:Mapped[float|None]=mapped_column(Float); longitude:Mapped[float|None]=mapped_column(Float); bio:Mapped[str|None]=mapped_column(Text); moderation_status:Mapped[str]=mapped_column(String(20),default='draft',index=True); is_active:Mapped[bool]=mapped_column(Boolean,default=True,index=True); is_banned:Mapped[bool]=mapped_column(Boolean,default=False,index=True); deleted_at:Mapped[datetime|None]=mapped_column(DateTime); vip_until:Mapped[datetime|None]=mapped_column(DateTime,index=True); created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow); updated_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow,onupdate=datetime.utcnow)
+class Photo(Base):
+    __tablename__='photos'; id:Mapped[int]=mapped_column(Integer,primary_key=True); user_id:Mapped[int]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True); file_id:Mapped[str]=mapped_column(String(255)); position:Mapped[int]=mapped_column(Integer,default=0); moderation_status:Mapped[str]=mapped_column(String(20),default='pending',index=True); created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
+class Reaction(Base):
+    __tablename__='reactions'; id:Mapped[int]=mapped_column(Integer,primary_key=True); from_user_id:Mapped[int]=mapped_column(ForeignKey('users.id',ondelete='CASCADE')); to_user_id:Mapped[int]=mapped_column(ForeignKey('users.id',ondelete='CASCADE')); kind:Mapped[str]=mapped_column(String(10)); created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow); __table_args__=(UniqueConstraint('from_user_id','to_user_id'),Index('ix_reaction_from_date','from_user_id','created_at'))
+class Match(Base):
+    __tablename__='matches'; id:Mapped[int]=mapped_column(Integer,primary_key=True); user_a_id:Mapped[int]=mapped_column(ForeignKey('users.id',ondelete='CASCADE')); user_b_id:Mapped[int]=mapped_column(ForeignKey('users.id',ondelete='CASCADE')); created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow); __table_args__=(UniqueConstraint('user_a_id','user_b_id'),)
+class Block(Base):
+    __tablename__='blocks'; id:Mapped[int]=mapped_column(Integer,primary_key=True); blocker_id:Mapped[int]=mapped_column(ForeignKey('users.id',ondelete='CASCADE')); blocked_id:Mapped[int]=mapped_column(ForeignKey('users.id',ondelete='CASCADE')); created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow); __table_args__=(UniqueConstraint('blocker_id','blocked_id'),)
+class Report(Base):
+    __tablename__='reports'; id:Mapped[int]=mapped_column(Integer,primary_key=True); reporter_id:Mapped[int]=mapped_column(ForeignKey('users.id',ondelete='CASCADE')); reported_id:Mapped[int]=mapped_column(ForeignKey('users.id',ondelete='CASCADE')); reason:Mapped[str]=mapped_column(String(500)); status:Mapped[str]=mapped_column(String(20),default='new',index=True); created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
+class Payment(Base):
+    __tablename__='payments'; id:Mapped[int]=mapped_column(Integer,primary_key=True); user_id:Mapped[int]=mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True); product:Mapped[str]=mapped_column(String(50)); stars:Mapped[int]=mapped_column(Integer); payload:Mapped[str]=mapped_column(String(255)); telegram_charge_id:Mapped[str]=mapped_column(String(255),unique=True,index=True); created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
+class AuditLog(Base):
+    __tablename__='audit_logs'; id:Mapped[int]=mapped_column(Integer,primary_key=True); admin_tg_id:Mapped[int]=mapped_column(BigInteger,index=True); action:Mapped[str]=mapped_column(String(100)); target_id:Mapped[int|None]=mapped_column(Integer); details:Mapped[str|None]=mapped_column(Text); created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
+class DB:
+    def __init__(self,url): self.engine=create_async_engine(url,pool_pre_ping=True,pool_recycle=1800); self.session=async_sessionmaker(self.engine,expire_on_commit=False,class_=AsyncSession)
+    async def init(self): pass

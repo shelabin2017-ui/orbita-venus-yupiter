@@ -1,0 +1,13 @@
+# secrets and local state
+.env
+.env.*
+!.env.example
+!.env.production.example
+*.db
+*.sqlite*
+backups/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
