@@ -7,6 +7,7 @@ from .db import DB
 from .handlers import r
 from .features import r as features_router, photo_worker
 from .match_features import r as match_router
+from .activity import touch_activity, inactivity_worker
 from .keyboards import set_current_user_is_admin
 from .redis_store import make_redis, make_fsm_storage
 
@@ -21,6 +22,8 @@ async def main():
         user = getattr(event, "from_user", None)
         set_current_user_is_admin(bool(user and user.id in cfg.admin_ids))
         data.update(db=db, config=cfg, redis=redis)
+        if user:
+            await touch_activity(db, redis, user.id, cfg.activity_touch_interval_seconds)
         return await handler(event, data)
 
     dp.message.middleware(inject)
@@ -31,13 +34,15 @@ async def main():
     dp.include_router(r)
 
     moderation_task = asyncio.create_task(photo_worker(bot, db, cfg))
+    inactivity_task = asyncio.create_task(inactivity_worker(bot, db, cfg))
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         print("🟢 Орбита запущена в режиме long polling")
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
         moderation_task.cancel()
-        await asyncio.gather(moderation_task, return_exceptions=True)
+        inactivity_task.cancel()
+        await asyncio.gather(moderation_task, inactivity_task, return_exceptions=True)
         await bot.session.close()
         await redis.aclose()
         await db.engine.dispose()
