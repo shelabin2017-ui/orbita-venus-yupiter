@@ -13,6 +13,7 @@ def main():
         [KeyboardButton(text="👤 Моя анкета"), KeyboardButton(text="✏️ Изменить")],
         [KeyboardButton(text="📍 Поиск рядом"), KeyboardButton(text="⭐ VIP")],
         [KeyboardButton(text="⭐ Stars"), KeyboardButton(text="🎮 Игры")],
+        [KeyboardButton(text="🌌 О проекте")],
     ]
     if _current_user_is_admin.get():
         rows.append([KeyboardButton(text="🛡 Админ-панель")])
